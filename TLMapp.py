@@ -15,27 +15,33 @@ from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
+import platform
 
 
 class TLM_prospector:
     def __init__(self,browser='Chrome'):
-        self.driver = self.create_web_driver()
+        # self.driver = self.create_web_driver()
+        self.driver =self.create_brave_chromium_driver()       
         self.webdriverwait = WebDriverWait(self.driver,60)
 
     def create_brave_chromium_driver(self):
-        driver_path = os.path.join(os.path.dirname(__file__),'chromedriver.exe') # location of your chromedriver
-        brave_path = "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe" # location of your Brave browser
+        # driver_path = os.path.join(os.path.dirname(__file__),'chromedriver.exe') # location of your chromedriver
 
-        s = Service(driver_path)
+        brave_path = {
+        'Linux':"/usr/bin/brave-browser-stable",
+        'Windows':"C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"} # location of your Brave browser
+
+        s = Service(ChromeDriverManager().install())
         option = webdriver.ChromeOptions()
         option.add_argument('log-level=3')
         option.add_experimental_option('excludeSwitches', ['enable-logging'])
-        option.binary_location = brave_path
+        option.binary_location = brave_path[platform.system()]
 
         d = DesiredCapabilities.CHROME
         d['goog:loggingPrefs'] = { 'browser':'ALL' }
 
         driver = webdriver.Chrome(service=s, options=option, desired_capabilities=d)
+        return driver
 
     def create_web_driver(self):                
         try:
@@ -88,19 +94,11 @@ class TLM_prospector:
         window_is_opened = self.webdriverwait.until(EC.new_window_is_opened(self.driver.window_handles))
         return window_is_opened
 
-    def wait_for_time(self):    
-        while True:
-            try:        
-                hours = self.webdriverwait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/p[1]/span[1]')))
-                minutes = self.webdriverwait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/p[1]/span[2]')))
-                seconds = self.webdriverwait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/p[1]/span[3]')))
-            # do stuff
-            except TimeoutException:
-                print('Couldnt get time... refreshing')
-                driver.refresh()
-            else:
-                break
-
+    def wait_for_time(self):            
+        hours = self.webdriverwait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/p[1]/span[1]')))
+        minutes = self.webdriverwait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/p[1]/span[2]')))
+        seconds = self.webdriverwait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/p[1]/span[3]')))
+        # do stuff    
         time_available = int(hours.text) * 60 * 60 + int(minutes.text) * 60 + int(seconds.text)
         return time_available
 
@@ -112,7 +110,7 @@ class TLM_prospector:
         
     def waiting_stale(self):
         staleness = self.webdriverwait.until(EC.staleness_of(
-            driver.find_element(By.XPATH,'//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/div/div/div'))
+            self.driver.find_element(By.XPATH,'//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/div/div/div'))
                               )
         return staleness
 
@@ -183,27 +181,40 @@ class TLM_prospector:
         print(self.click_button('//*[@id="root"]/div/section/div[2]/div/div[6]/button','Approve WAX wallet',new_window=True))
 
     def MINE_LOOP(self):           
-        try: 
+        
+        # print('Waiting for time to appear...',end=' ')
+        # waiting_time = self.wait_for_time()
+        # print(waiting_time)
+        # time.sleep(waiting_time)
+        try:
             while True:
-                print('Clicking mine...',end=' ')
-                print(self.click_button('//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/div/div/div','Mine'))
-                print('Waiting Mine staleness',end=' ')
-                print(self.waiting_stale())
-                print('Clicking claim mine...',end=' ')
-                print( self.click_button('//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/div/div/div','Claim'))
-                print('Waiting for claim mine approve window...',end=' ')
-                print(self.pop_up_window())
-                print('Clicking approve transaction...',end=' ')
-                print(self.click_button('//*[@id="root"]/div/section/div[2]/div/div[5]/button','Approve Transaction',new_window=True))
-                self.get_cpu_trilium()
-                print('Waiting for time to appear...',end=' ')
-                waiting_time = self.wait_for_time()
-                print(waiting_time)
-                time.sleep(waiting_time)
+                try: 
+                    self.get_cpu_trilium()
+                    print('Waiting for time to appear...',end=' ')
+                    waiting_time = self.wait_for_time()
+                    print(waiting_time)
+                    time.sleep(waiting_time)
+                except:
+                    pass
+                try:
+                    print('Clicking mine...',end=' ')
+                    print(self.click_button('//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/div/div/div','Mine'))
+                    print('Waiting Mine staleness',end=' ')
+                    print(self.waiting_stale())
+                    print('Clicking claim mine...',end=' ')
+                    print( self.click_button('//*[@id="root"]/div[3]/div[1]/div/div[3]/div[5]/div[2]/div/div/div','Claim'))
+                    print('Waiting for claim mine approve window...',end=' ')
+                    print(self.pop_up_window())
+                    print('Clicking approve transaction...',end=' ')
+                    print(self.click_button('//*[@id="root"]/div/section/div[2]/div/div[5]/button','Approve Transaction',new_window=True))
+                except Exception as e:
+                    print(e)
+                    self.driver.refresh()
         except:
             RESUME_KEY = 'TLMFTW'
             while RESUME_KEY != '':
                 RESUME_KEY = input("\n\n\nSomething went wrong. Press ENTER to continue.\n\n\n")
+            self.driver.refresh()
             self.MINE_LOOP()
 
 if __name__ == '__main__':
